@@ -190,11 +190,7 @@
   const BRANCH_QS = `?ref=${encodeURIComponent(cfg.branch)}&v=${Date.now()}`;
   const pdfViewerBase = cfg.pdfViewerBase;
 
-  const state = {
-    items: [],
-    filtered: [],
-    current: null
-  };
+  const state = { items: [], filtered: [], current: null };
 
   const $status = document.getElementById('status');
   const $listSection = document.getElementById('listSection');
@@ -219,8 +215,8 @@
     const noExt = baseName(filename);
     const parts = noExt.split('_');
     if(parts.length===0) return noExt;
-    if(/^\d+$/.test(parts[0])) parts.shift();
-    if(parts.length && /^\d{4}-\d{2}-\d{2}$/.test(parts.at(-1))) parts.pop();
+    if(/^\d+$/.test(parts[0])) parts.shift(); // 선행 숫자 제거 (01_, 07_ 등)
+    if(parts.length && /^\d{4}-\d{2}-\d{2}$/.test(parts.at(-1))) parts.pop(); // 말미 날짜 제거
     return parts.join('_');
   }
   function escapeHTML(s){ return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -285,15 +281,15 @@
   function openDrawer(){ $drawer.classList.add('open'); $drawer.setAttribute('aria-hidden','false'); }
   function closeDrawer(){ $drawer.classList.remove('open'); $drawer.setAttribute('aria-hidden','true'); }
 
-  // 뷰어 URL 생성: 기본 줌 = 실제 크기(page-actual)
+  // pdf.js: 기본 확대 = 실제 크기(100%)
   function buildViewerUrl(rawPdfUrl){
     const fileParam = `file=${encodeURIComponent(rawPdfUrl)}`;
     const hashParams = new URLSearchParams({
       disableDownload: "true",
       disablePrint: "true",
-      zoom: "page-actual" // ← 실제 크기(100%) 기본값
+      zoom: "page-actual"
     });
-    return `${cfg.pdfViewerBase}?${fileParam}#${hashParams.toString()}`;
+    return `${pdfViewerBase}?${fileParam}#${hashParams.toString()}`;
   }
 
   async function openItem(it){
@@ -372,6 +368,16 @@
       document.getElementById('listSection').hidden = false;
       renderList(items);
       renderDrawer(items);
+
+      // ▼ 쿼리스트링 ?q= 를 검색창에 자동 반영
+      const params = new URLSearchParams(location.search);
+      const q = params.get('q');
+      if (q) {
+        $search.value = q;
+        applyFilter(q); // 목록 즉시 필터링 + 1건이면 자동 열기
+      }
+      // ▲ 여기까지
+
       handleHashChange();
     }catch(err){
       console.error(err);
