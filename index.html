@@ -78,7 +78,7 @@
       display:flex; flex-direction:column; gap:8px; cursor:pointer;
     }
     .card h3{margin:0; font-size:15px; line-height:1.4; word-break:break-word;}
-    .card small{color:var(--muted)}
+    .card small{display: none;}
 
     .viewer{
       border:1.5px solid var(--brand);
@@ -362,7 +362,7 @@
     try{
       setStatus('MSDS 목록을 불러오는 중…');
       let items = await fetchRecursive(cfg.dataPath);
-      items.sort((a,b)=>displayNameFromFilename(a.name).localeCompare(displayNameFromFilename(b.name),'ko'));
+      items.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
       state.items = items;
       clearStatus();
       document.getElementById('listSection').hidden = false;
