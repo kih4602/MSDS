@@ -67,11 +67,11 @@
     }
     .menu-btn:focus-visible{outline:var(--focus)}
 
-    main{flex:1; display:flex; flex-direction:column; gap:12px; padding:12px; max-width:1000px; margin:0 auto; width:100%;}
+    main{flex:1; display:flex; flex-direction:column; gap:12px; padding:12px; max-width:1200px; margin:0 auto; width:100%;}
 
     .grid{display:grid; gap:12px; grid-template-columns:1fr;}
     @media(min-width:560px){.grid{grid-template-columns:repeat(2,1fr);}}
-    @media(min-width:900px){.grid{grid-template-columns:repeat(3,1fr);}}
+    @media(min-width:900px){.grid{grid-template-columns:repeat(4,1fr);}}
     .card{
       border:1.5px solid var(--brand); border-radius:var(--radius);
       padding:14px; background:#fff; box-shadow:var(--shadow);
@@ -95,6 +95,29 @@
       padding:10px; border:1px solid var(--brand);
       border-radius:var(--radius); background:#fff; box-shadow:var(--shadow);
     }
+.pdf-fallback{
+  height:100%;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:14px;
+  padding:24px;
+  text-align:center;
+  background:#fff;
+}
+
+.pdf-fallback-text{
+  margin:0;
+  color:var(--muted);
+}
+
+.pdf-fallback-actions{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  justify-content:center;
+}
     .truncate{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:60vw;}
 
     .drawer{position:fixed; inset:0; display:none; z-index:60;}
@@ -124,6 +147,18 @@
     .btn{appearance:none; border:1px solid var(--brand); background:#fff; color:var(--brand);
       border-radius:10px; padding:8px 12px; font-weight:600; box-shadow:var(--shadow);}
     .btn:focus-visible{outline:var(--focus)}
+
+    #btnMenu {
+      display: none !important;
+    }
+
+    .topbar .search-wrap {
+      flex: 0 0 66%;
+    }
+
+    @media (max-width: 420px) {
+      .topbar .search-wrap { flex: 1 1 auto; }
+    }
   </style>
 </head>
 <body>
@@ -145,6 +180,7 @@
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#0A1E2E" stroke-width="2" d="M21 21l-4.35-4.35"/><circle cx="10" cy="10" r="7" fill="none" stroke="#0A1E2E" stroke-width="2"/></svg>
         <input id="searchInput" type="search" placeholder="파일명으로 검색…" aria-label="파일명 검색" autocomplete="off" />
       </div>
+      <button id="btnDummyClose" class="btn" type="button" aria-label="닫기">닫기</button>
     </div>
   </header>
 
@@ -162,9 +198,17 @@
           <button id="closeViewer" class="btn">목록으로</button>
         </div>
       </div>
-      <div class="viewer" aria-label="PDF 뷰어">
-        <iframe id="pdfFrame" title="PDF 미리보기" loading="lazy" referrerpolicy="no-referrer"></iframe>
-      </div>
+<div class="viewer" aria-label="PDF 뷰어">
+  <iframe id="pdfFrame" title="PDF 미리보기" loading="lazy" referrerpolicy="no-referrer"></iframe>
+
+  <div id="pdfFallback" class="pdf-fallback" hidden>
+    <p class="pdf-fallback-text">이 기기에서는 PDF 미리보기가 바로 지원되지 않을 수 있습니다.</p>
+    <div class="pdf-fallback-actions">
+      <a id="pdfOpenLink" class="btn" href="#" target="_blank" rel="noopener noreferrer">PDF 열기</a>
+      <a id="pdfDownloadLink" class="btn" href="#" download>PDF 다운로드</a>
+    </div>
+  </div>
+</div>
     </section>
   </main>
 </div>
@@ -198,6 +242,9 @@
   const $viewerSection = document.getElementById('viewerSection');
   const $pdfFrame = document.getElementById('pdfFrame');
   const $currentTitle = document.getElementById('currentTitle');
+const $pdfFallback = document.getElementById('pdfFallback');
+const $pdfOpenLink = document.getElementById('pdfOpenLink');
+const $pdfDownloadLink = document.getElementById('pdfDownloadLink');
   const $closeViewer = document.getElementById('closeViewer');
   const $drawer = document.getElementById('drawer');
   const $drawerBackdrop = document.getElementById('drawerBackdrop');
@@ -212,13 +259,15 @@
 
   function baseName(name){ return name.replace(/\.pdf$/i,''); }
   function displayNameFromFilename(filename){
-    const noExt = baseName(filename);
-    const parts = noExt.split('_');
-    if(parts.length===0) return noExt;
-    if(/^\d+$/.test(parts[0])) parts.shift(); // 선행 숫자 제거 (01_, 07_ 등)
-    if(parts.length && /^\d{4}-\d{2}-\d{2}$/.test(parts.at(-1))) parts.pop(); // 말미 날짜 제거
-    return parts.join('_');
-  }
+  const noExt = baseName(filename);
+  const cutTail = noExt.replace(/_MSDS(?:_.+)?$/i, '');
+  const parts = cutTail.split('_');
+  if(parts.length===0) return cutTail || noExt;
+  if(/^\d+$/.test(parts[0])) parts.shift(); // 선행 숫자 제거 (01_, 07_ 등)
+  if(parts.length && /^\d{4}-\d{2}-\d{2}$/.test(parts.at(-1))) parts.pop(); // 말미 날짜 제거
+  return parts.join('_');
+}
+
   function escapeHTML(s){ return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
   async function fetchRecursive(path=""){
@@ -236,6 +285,12 @@
       }
     }
     return out;
+  }
+
+  function shouldUseFallbackView(){
+    const ua = navigator.userAgent || '';
+    const isAndroid = /Android/i.test(ua);
+    return isAndroid;
   }
 
   function renderList(items){
@@ -298,7 +353,21 @@
     $currentTitle.textContent = title;
     $currentTitle.title = title;
 
-    $pdfFrame.src = buildViewerUrl(it.download_url);
+    const rawPdfUrl = it.download_url;
+    const viewerUrl = buildViewerUrl(rawPdfUrl);
+
+    $pdfOpenLink.href = rawPdfUrl;
+    $pdfDownloadLink.href = rawPdfUrl;
+
+    if (shouldUseFallbackView()) {
+      $pdfFrame.hidden = true;
+      $pdfFallback.hidden = false;
+      $pdfFrame.src = 'about:blank';
+    } else {
+      $pdfFallback.hidden = true;
+      $pdfFrame.hidden = false;
+      $pdfFrame.src = viewerUrl;
+    }
 
     $listSection.hidden = true;
     $viewerSection.hidden = false;
@@ -308,6 +377,10 @@
   function closeViewer(){
     state.current = null;
     $pdfFrame.src = 'about:blank';
+    $pdfFrame.hidden = false;
+    $pdfFallback.hidden = true;
+    $pdfOpenLink.href = '#';
+    $pdfDownloadLink.href = '#';
     $viewerSection.hidden = true;
     $listSection.hidden = false;
     location.hash = '#/';
