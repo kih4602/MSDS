@@ -287,10 +287,10 @@ const $pdfDownloadLink = document.getElementById('pdfDownloadLink');
     return out;
   }
 
+  // Android/Samsung Internet also tries PDF.js viewer first.
+  // If loading fails or takes too long, fallback buttons are shown.
   function shouldUseFallbackView(){
-    const ua = navigator.userAgent || '';
-    const isAndroid = /Android/i.test(ua);
-    return isAndroid;
+    return false;
   }
 
   function renderList(items){
@@ -359,15 +359,28 @@ const $pdfDownloadLink = document.getElementById('pdfDownloadLink');
     $pdfOpenLink.href = rawPdfUrl;
     $pdfDownloadLink.href = rawPdfUrl;
 
-    if (shouldUseFallbackView()) {
-      $pdfFrame.hidden = true;
-      $pdfFallback.hidden = false;
-      $pdfFrame.src = 'about:blank';
-    } else {
-      $pdfFallback.hidden = true;
-      $pdfFrame.hidden = false;
-      $pdfFrame.src = viewerUrl;
-    }
+    $pdfFallback.hidden = true;
+    $pdfFrame.hidden = false;
+    $pdfFrame.src = viewerUrl;
+
+    // 일부 모바일 브라우저에서 iframe/PDF.js 로딩이 실패할 수 있으므로,
+    // 먼저 뷰어를 시도하고 일정 시간 후에도 로드 이벤트가 없으면 fallback을 표시합니다.
+    let viewerLoaded = false;
+    const fallbackTimer = setTimeout(() => {
+      if (!viewerLoaded && state.current === it) {
+        $pdfFrame.hidden = true;
+        $pdfFallback.hidden = false;
+      }
+    }, 5000);
+
+    $pdfFrame.onload = () => {
+      viewerLoaded = true;
+      clearTimeout(fallbackTimer);
+      if (state.current === it) {
+        $pdfFallback.hidden = true;
+        $pdfFrame.hidden = false;
+      }
+    };
 
     $listSection.hidden = true;
     $viewerSection.hidden = false;
