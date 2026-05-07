@@ -95,29 +95,6 @@
       padding:10px; border:1px solid var(--brand);
       border-radius:var(--radius); background:#fff; box-shadow:var(--shadow);
     }
-.pdf-fallback{
-  height:100%;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  gap:14px;
-  padding:24px;
-  text-align:center;
-  background:#fff;
-}
-
-.pdf-fallback-text{
-  margin:0;
-  color:var(--muted);
-}
-
-.pdf-fallback-actions{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  justify-content:center;
-}
     .truncate{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:60vw;}
 
     .drawer{position:fixed; inset:0; display:none; z-index:60;}
@@ -200,14 +177,6 @@
       </div>
 <div class="viewer" aria-label="PDF 뷰어">
   <iframe id="pdfFrame" title="PDF 미리보기" loading="lazy" referrerpolicy="no-referrer"></iframe>
-
-  <div id="pdfFallback" class="pdf-fallback" hidden>
-    <p class="pdf-fallback-text">이 기기에서는 PDF 미리보기가 바로 지원되지 않을 수 있습니다.</p>
-    <div class="pdf-fallback-actions">
-      <a id="pdfOpenLink" class="btn" href="#" target="_blank" rel="noopener noreferrer">PDF 열기</a>
-      <a id="pdfDownloadLink" class="btn" href="#" download>PDF 다운로드</a>
-    </div>
-  </div>
 </div>
     </section>
   </main>
@@ -242,9 +211,6 @@
   const $viewerSection = document.getElementById('viewerSection');
   const $pdfFrame = document.getElementById('pdfFrame');
   const $currentTitle = document.getElementById('currentTitle');
-const $pdfFallback = document.getElementById('pdfFallback');
-const $pdfOpenLink = document.getElementById('pdfOpenLink');
-const $pdfDownloadLink = document.getElementById('pdfDownloadLink');
   const $closeViewer = document.getElementById('closeViewer');
   const $drawer = document.getElementById('drawer');
   const $drawerBackdrop = document.getElementById('drawerBackdrop');
@@ -260,7 +226,7 @@ const $pdfDownloadLink = document.getElementById('pdfDownloadLink');
   function baseName(name){ return name.replace(/\.pdf$/i,''); }
   function displayNameFromFilename(filename){
   const noExt = baseName(filename);
-  const cutTail = noExt.replace(/_MSDS(?:_.+)?$/i, '');
+  const cutTail = noExt.replace(/MSDS/i, '');
   const parts = cutTail.split('_');
   if(parts.length===0) return cutTail || noExt;
   if(/^\d+$/.test(parts[0])) parts.shift(); // 선행 숫자 제거 (01_, 07_ 등)
@@ -285,12 +251,6 @@ const $pdfDownloadLink = document.getElementById('pdfDownloadLink');
       }
     }
     return out;
-  }
-
-  // Android/Samsung Internet also tries PDF.js viewer first.
-  // If loading fails or takes too long, fallback buttons are shown.
-  function shouldUseFallbackView(){
-    return false;
   }
 
   function renderList(items){
@@ -356,31 +316,8 @@ const $pdfDownloadLink = document.getElementById('pdfDownloadLink');
     const rawPdfUrl = it.download_url;
     const viewerUrl = buildViewerUrl(rawPdfUrl);
 
-    $pdfOpenLink.href = rawPdfUrl;
-    $pdfDownloadLink.href = rawPdfUrl;
-
-    $pdfFallback.hidden = true;
     $pdfFrame.hidden = false;
     $pdfFrame.src = viewerUrl;
-
-    // 일부 모바일 브라우저에서 iframe/PDF.js 로딩이 실패할 수 있으므로,
-    // 먼저 뷰어를 시도하고 일정 시간 후에도 로드 이벤트가 없으면 fallback을 표시합니다.
-    let viewerLoaded = false;
-    const fallbackTimer = setTimeout(() => {
-      if (!viewerLoaded && state.current === it) {
-        $pdfFrame.hidden = true;
-        $pdfFallback.hidden = false;
-      }
-    }, 5000);
-
-    $pdfFrame.onload = () => {
-      viewerLoaded = true;
-      clearTimeout(fallbackTimer);
-      if (state.current === it) {
-        $pdfFallback.hidden = true;
-        $pdfFrame.hidden = false;
-      }
-    };
 
     $listSection.hidden = true;
     $viewerSection.hidden = false;
@@ -391,9 +328,6 @@ const $pdfDownloadLink = document.getElementById('pdfDownloadLink');
     state.current = null;
     $pdfFrame.src = 'about:blank';
     $pdfFrame.hidden = false;
-    $pdfFallback.hidden = true;
-    $pdfOpenLink.href = '#';
-    $pdfDownloadLink.href = '#';
     $viewerSection.hidden = true;
     $listSection.hidden = false;
     location.hash = '#/';
