@@ -3,18 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>MSDS 뷰어 (모바일)</title>
-  <!-- =========================
-       설정 블록 (필요 시 아래 값만 수정)
-       ========================= -->
-  <!--
-    repoOwner: 깃허브 소유자
-    repoName : 깃허브 저장소명
-    branch   : 조회 브랜치
-    dataPath : PDF가 위치한 폴더 경로(루트면 빈 문자열 "")
-    logoUrl  : 상단 로고 이미지(raw 링크)
-    pdfViewerBase : pdf.js 공식 뷰어 URL
-  -->
+  <title>MSDS 모바일 뷰어</title>
   <script>
     window.__CONFIG__ = {
       repoOwner: "kih4602",
@@ -22,388 +11,211 @@
       branch:    "main",
       dataPath:  "",
       logoUrl:   "https://raw.githubusercontent.com/kih4602/picture/main/%EC%97%90%EB%84%88%EC%A7%80%ED%94%8C%EB%9F%AC%EC%8A%A4%EB%A1%9C%EA%B3%A0.png",
-      pdfViewerBase: "https://mozilla.github.io/pdf.js/web/viewer.html"
+      // Google Docs Viewer를 기본으로 사용 (범용성 극대화)
+      pdfViewerBase: "https://docs.google.com/viewer"
     };
   </script>
   <style>
     :root{
-      --brand:#0A1E2E;
-      --bg:#FFFFFF;
-      --fg:#111315;
-      --muted:#5b6b79;
-      --radius:14px;
-      --shadow:0 8px 24px rgba(10,30,46,.08);
-      --shadow-2:0 16px 40px rgba(10,30,46,.14);
-      --focus: 2px solid var(--brand);
+      --brand:#0A1E2E; --bg:#FFFFFF; --fg:#111315;
+      --muted:#5b6b79; --radius:14px; --shadow:0 8px 24px rgba(10,30,46,.08);
     }
-    *{box-sizing:border-box}
-    html,body{height:100%}
+    *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
     body{
-      margin:0;
-      background:var(--bg);
-      color:var(--fg);
-      font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Apple SD Gothic Neo,Noto Sans KR,Pretendard,Malgun Gothic,sans-serif;
+      margin:0; background:var(--bg); color:var(--fg);
+      font:16px/1.5 system-ui, -apple-system, sans-serif;
     }
-
-    .app{min-height:100%; display:flex; flex-direction:column;}
-    header{position:sticky; top:0; z-index:50; background:var(--bg); border-bottom:1px solid var(--brand);}
-    .topbar{
-      display:flex; align-items:center; gap:10px;
-      padding:10px 12px; max-width:1200px; margin:0 auto;
-    }
-    .logo{height:36px; width:auto; display:block;}
-    .logo-wrap{display:flex; align-items:center; gap:10px; text-decoration:none; color:inherit;}
-    .spacer{flex:0 0 6px}
+    header{position:sticky; top:0; z-index:50; background:var(--bg); border-bottom:2px solid var(--brand); padding:10px;}
+    .topbar{display:flex; align-items:center; gap:10px; max-width:800px; margin:0 auto;}
+    .logo{height:34px; width:auto;}
+    
     .search-wrap{
       display:flex; align-items:center; gap:8px; flex:1;
-      border:1px solid var(--brand); border-radius:999px; padding:8px 12px; background:#fff;
+      border:2px solid var(--brand); border-radius:999px; padding:6px 12px;
     }
-    .search-wrap input{border:0; outline:none; width:100%; font-size:15px; background:transparent;}
-    .icon{display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px;}
-    .menu-btn{
-      display:inline-flex; align-items:center; justify-content:center;
-      width:42px; height:42px; border-radius:12px; background:#fff;
-      border:1px solid var(--brand); box-shadow:var(--shadow);
-    }
-    .menu-btn:focus-visible{outline:var(--focus)}
+    .search-wrap input{border:0; outline:none; width:100%; font-size:16px;}
 
-    main{flex:1; display:flex; flex-direction:column; gap:12px; padding:12px; max-width:1200px; margin:0 auto; width:100%;}
-
+    main{padding:12px; max-width:800px; margin:0 auto;}
     .grid{display:grid; gap:12px; grid-template-columns:1fr;}
-    @media(min-width:560px){.grid{grid-template-columns:repeat(2,1fr);}}
-    @media(min-width:900px){.grid{grid-template-columns:repeat(4,1fr);}}
+    
     .card{
-      border:1.5px solid var(--brand); border-radius:var(--radius);
-      padding:14px; background:#fff; box-shadow:var(--shadow);
-      display:flex; flex-direction:column; gap:8px; cursor:pointer;
-    }
-    .card h3{margin:0; font-size:15px; line-height:1.4; word-break:break-word;}
-    .card small{display: none;}
-
-    .viewer{
-      border:1.5px solid var(--brand);
-      border-radius:var(--radius);
-      overflow:hidden; background:#fff; box-shadow:var(--shadow-2);
-      height: calc(100vh - 160px);
-      min-height:420px;
-    }
-    .viewer iframe{
-      width:100%; height:100%; border:0; background:#f7f9fb;
-    }
-    .viewer-toolbar{
-      display:flex; align-items:center; justify-content:space-between; gap:8px;
-      padding:10px; border:1px solid var(--brand);
-      border-radius:var(--radius); background:#fff; box-shadow:var(--shadow);
-    }
-    .truncate{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:60vw;}
-
-    .drawer{position:fixed; inset:0; display:none; z-index:60;}
-    .drawer.open{display:block}
-    .drawer-backdrop{position:absolute; inset:0; background:rgba(0,0,0,.3);}
-    .drawer-panel{
-      position:absolute; left:0; top:0; bottom:0; width:min(92vw,420px);
-      background:#fff; border-right:2px solid var(--brand);
-      box-shadow:var(--shadow-2); padding:14px; overflow:auto;
-      transform:translateX(-100%); transition:transform .22s ease;
-    }
-    .drawer.open .drawer-panel{transform:translateX(0)}
-    .drawer .list{display:flex; flex-direction:column; gap:8px;}
-    .drawer .item{
-      display:flex; align-items:center; gap:10px;
-      padding:10px; border:1px solid var(--brand); border-radius:12px; background:#fff; cursor:pointer;
-    }
-    .drawer .item:focus-visible{outline:var(--focus)}
-
-    .empty, .error, .loading{
-      border:1.5px dashed var(--brand); border-radius:var(--radius);
-      padding:18px; text-align:center; color:var(--muted); background:#fff;
+      border:2px solid var(--brand); border-radius:var(--radius);
+      padding:16px; background:#fff; box-shadow:var(--shadow);
+      cursor:pointer; font-weight:bold; font-size:17px;
     }
 
-    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-    a,button,input,select,textarea{font:inherit}
-    .btn{appearance:none; border:1px solid var(--brand); background:#fff; color:var(--brand);
-      border-radius:10px; padding:8px 12px; font-weight:600; box-shadow:var(--shadow);}
-    .btn:focus-visible{outline:var(--focus)}
-
-    #btnMenu {
-      display: none !important;
+    /* 뷰어 영역 */
+    .viewer-container { display: flex; flex-direction: column; height: calc(100vh - 80px); gap: 10px; }
+    .viewer-toolbar { display: flex; justify-content: space-between; align-items: center; }
+    .viewer-frame-wrap { 
+      flex: 1; border: 2px solid var(--brand); border-radius: var(--radius); 
+      overflow: hidden; background: #eee; position: relative;
     }
-
-    .topbar .search-wrap {
-      flex: 0 0 66%;
+    iframe { width: 100%; height: 100%; border: 0; }
+    
+    .btn {
+      appearance:none; border:2px solid var(--brand); background:#fff; 
+      color:var(--brand); border-radius:10px; padding:10px 16px; 
+      font-weight:bold; cursor:pointer; font-size:14px;
     }
+    .btn-primary { background: var(--brand); color: #fff; }
 
-    @media (max-width: 420px) {
-      .topbar .search-wrap { flex: 1 1 auto; }
+    .loading-overlay {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      text-align: center; color: var(--muted); pointer-events: none;
     }
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
-<div class="app">
-  <a class="sr-only" href="#content">Skip to content</a>
-  <header role="banner">
-    <div class="topbar" aria-label="상단 바">
-      <button id="btnMenu" class="menu-btn" aria-label="전체 목록 열기">
-        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#0A1E2E" stroke-width="2" stroke-linecap="round" d="M3 6h18M3 12h18M3 18h18"/></svg>
-      </button>
 
-      <a id="btnHome" class="logo-wrap" href="#" aria-label="홈으로 이동">
-        <img id="logo" class="logo" alt="로고" />
-      </a>
-
-      <div class="spacer"></div>
-
-      <div class="search-wrap" role="search" aria-label="파일 검색">
-        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#0A1E2E" stroke-width="2" d="M21 21l-4.35-4.35"/><circle cx="10" cy="10" r="7" fill="none" stroke="#0A1E2E" stroke-width="2"/></svg>
-        <input id="searchInput" type="search" placeholder="파일명으로 검색…" aria-label="파일명 검색" autocomplete="off" />
-      </div>
-      <button id="btnDummyClose" class="btn" type="button" aria-label="닫기">닫기</button>
+<header>
+  <div class="topbar">
+    <img id="logo" class="logo" alt="Logo" />
+    <div id="searchBox" class="search-wrap">
+      <input id="searchInput" type="search" placeholder="MSDS 검색..." autocomplete="off" />
     </div>
-  </header>
+    <button id="btnHome" class="btn hidden">홈</button>
+  </div>
+</header>
 
-  <main id="content" role="main" tabindex="-1">
-    <section id="status" class="loading" aria-live="polite">MSDS 목록을 불러오는 중…</section>
+<main id="content">
+  <div id="status" class="card">목록을 불러오는 중...</div>
+  
+  <!-- 리스트 섹션 -->
+  <section id="listSection" class="grid hidden"></section>
 
-    <section id="listSection" hidden>
-      <div class="grid" id="cardGrid" aria-live="polite" aria-busy="false"></div>
-    </section>
-
-    <section id="viewerSection" hidden>
-      <div class="viewer-toolbar" role="group" aria-label="뷰어 도구 막대">
-        <div class="truncate" id="currentTitle" title=""></div>
-        <div style="display:flex; gap:8px">
-          <button id="closeViewer" class="btn">목록으로</button>
-        </div>
+  <!-- 뷰어 섹션 -->
+  <section id="viewerSection" class="viewer-container hidden">
+    <div class="viewer-toolbar">
+      <div id="currentTitle" style="font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:50vw;"></div>
+      <div style="display:flex; gap:6px;">
+        <a id="directDownload" class="btn" target="_blank">원본보기</a>
+        <button id="closeViewer" class="btn btn-primary">닫기</button>
       </div>
-<div class="viewer" aria-label="PDF 뷰어">
-  <iframe id="pdfFrame" title="PDF 미리보기" loading="lazy" referrerpolicy="no-referrer"></iframe>
-</div>
-    </section>
-  </main>
-</div>
-
-<!-- 드로어: 전체 목록 -->
-<div id="drawer" class="drawer" aria-hidden="true" aria-label="전체 MSDS 목록">
-  <div class="drawer-backdrop" id="drawerBackdrop" tabindex="-1"></div>
-  <aside class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
-    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px;">
-      <h2 id="drawerTitle" style="margin:0; font-size:16px;">MSDS 전체</h2>
-      <button id="drawerClose" class="menu-btn" aria-label="닫기">
-        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#0A1E2E" stroke-width="2" stroke-linecap="round" d="M4 4l16 16M20 4L4 20"/></svg>
-      </button>
     </div>
-    <div id="drawerList" class="list" role="list"></div>
-  </aside>
-</div>
+    <div class="viewer-frame-wrap">
+      <div id="iframeLoading" class="loading-overlay">문서를 여는 중...<br>(시간이 걸릴 수 있습니다)</div>
+      <iframe id="pdfFrame" src="about:blank"></iframe>
+    </div>
+  </section>
+</main>
 
 <script>
 (function(){
   const cfg = window.__CONFIG__;
-  const API_BASE = `https://api.github.com/repos/${cfg.repoOwner}/${cfg.repoName}/contents`;
-  const BRANCH_QS = `?ref=${encodeURIComponent(cfg.branch)}&v=${Date.now()}`;
-  const pdfViewerBase = cfg.pdfViewerBase;
-
-  const state = { items: [], filtered: [], current: null };
+  const state = { items: [], current: null };
 
   const $status = document.getElementById('status');
   const $listSection = document.getElementById('listSection');
-  const $grid = document.getElementById('cardGrid');
   const $viewerSection = document.getElementById('viewerSection');
   const $pdfFrame = document.getElementById('pdfFrame');
-  const $currentTitle = document.getElementById('currentTitle');
-  const $closeViewer = document.getElementById('closeViewer');
-  const $drawer = document.getElementById('drawer');
-  const $drawerBackdrop = document.getElementById('drawerBackdrop');
-  const $drawerClose = document.getElementById('drawerClose');
-  const $drawerList = document.getElementById('drawerList');
-  const $search = document.getElementById('searchInput');
-  const $logo = document.getElementById('logo');
+  const $searchInput = document.getElementById('searchInput');
+  const $searchBox = document.getElementById('searchBox');
   const $btnHome = document.getElementById('btnHome');
+  const $directDownload = document.getElementById('directDownload');
 
-  $logo.src = cfg.logoUrl;
-  $logo.addEventListener('error', ()=>{$logo.alt="로고";});
+  // 로고 설정
+  document.getElementById('logo').src = cfg.logoUrl;
 
-  function baseName(name){ return name.replace(/\.pdf$/i,''); }
-  function displayNameFromFilename(filename){
-  const noExt = baseName(filename);
-  const cutTail = noExt.replace(/MSDS/i, '');
-  const parts = cutTail.split('_');
-  if(parts.length===0) return cutTail || noExt;
-  if(/^\d+$/.test(parts[0])) parts.shift(); // 선행 숫자 제거 (01_, 07_ 등)
-  if(parts.length && /^\d{4}-\d{2}-\d{2}$/.test(parts.at(-1))) parts.pop(); // 말미 날짜 제거
-  return parts.join('_');
-}
+  function getDisplayName(filename) {
+    return filename.replace(/\.[^/.]+$/, "").replace(/^\d+[_]/, "").replace(/_MSDS/i, "");
+  }
 
-  function escapeHTML(s){ return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-
-  async function fetchRecursive(path=""){
-    const url = `${API_BASE}/${encodeURIComponent(path)}${BRANCH_QS}`;
-    const res = await fetch(url, {headers:{'Accept':'application/vnd.github+json'}});
-    if(!res.ok) throw new Error(`목록을 불러오지 못했습니다 (${res.status})`);
-    const entries = await res.json();
-    const out = [];
-    for(const e of entries){
-      if(e.type === 'file' && /\.pdf$/i.test(e.name)){
-        out.push({name:e.name, path:e.path, download_url:`${e.download_url}?v=${Date.now()}`, html_url:e.html_url});
-      }else if(e.type === 'dir'){
-        const sub = await fetchRecursive(e.path);
-        out.push(...sub);
+  async function fetchFiles(path = "") {
+    const url = `https://api.github.com/repos/${cfg.repoOwner}/${cfg.repoName}/contents/${path}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    let files = [];
+    for (let item of data) {
+      if (item.type === "file" && item.name.toLowerCase().endsWith(".pdf")) {
+        files.push(item);
+      } else if (item.type === "dir") {
+        const sub = await fetchFiles(item.path);
+        files = files.concat(sub);
       }
     }
-    return out;
+    return files;
   }
 
-  function renderList(items){
-    $grid.innerHTML = '';
-    if(items.length === 0){
-      $grid.insertAdjacentHTML('beforeend', `<div class="empty" role="status">검색 결과가 없습니다.</div>`);
-      return;
-    }
-    for(const it of items){
-      const shown = escapeHTML(displayNameFromFilename(it.name));
-      const card = document.createElement('article');
-      card.className = 'card';
-      card.tabIndex = 0;
-      card.setAttribute('role','button');
-      card.setAttribute('aria-label', `${shown} 열기`);
-      card.innerHTML = `
-        <h3 title="${shown}">${shown}</h3>
-        <small>${escapeHTML(it.path)}</small>
-      `;
-      const open = ()=>openItem(it);
-      card.addEventListener('click', open);
-      card.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); open(); } });
-      $grid.appendChild(card);
-    }
-  }
-
-  function renderDrawer(items){
-    $drawerList.innerHTML = '';
-    items.forEach(it=>{
-      const title = escapeHTML(displayNameFromFilename(it.name));
-      const row = document.createElement('button');
-      row.className='item';
-      row.type='button';
-      row.innerHTML = `
-        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="#0A1E2E" stroke-width="2" d="M6 2h9l5 5v15H6z"/><path fill="none" stroke="#0A1E2E" stroke-width="2" d="M15 2v5h5"/></svg>
-        <span style="text-align:left">${title}</span>
-      `;
-      row.addEventListener('click', ()=>{ closeDrawer(); openItem(it); });
-      $drawerList.appendChild(row);
+  function renderList(list) {
+    $listSection.innerHTML = '';
+    list.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'card';
+      div.textContent = getDisplayName(item.name);
+      div.onclick = () => openViewer(item);
+      $listSection.appendChild(div);
     });
+    $listSection.classList.remove('hidden');
+    $status.classList.add('hidden');
   }
 
-  function openDrawer(){ $drawer.classList.add('open'); $drawer.setAttribute('aria-hidden','false'); }
-  function closeDrawer(){ $drawer.classList.remove('open'); $drawer.setAttribute('aria-hidden','true'); }
-
-  // pdf.js: 기본 확대 = 실제 크기(100%)
-  function buildViewerUrl(rawPdfUrl){
-    const fileParam = `file=${encodeURIComponent(rawPdfUrl)}`;
-    const hashParams = new URLSearchParams({
-      disableDownload: "true",
-      disablePrint: "true",
-      zoom: "page-actual"
-    });
-    return `${pdfViewerBase}?${fileParam}#${hashParams.toString()}`;
-  }
-
-  async function openItem(it){
-    state.current = it;
-    const title = displayNameFromFilename(it.name);
-    $currentTitle.textContent = title;
-    $currentTitle.title = title;
-
-    const rawPdfUrl = it.download_url;
-    const viewerUrl = buildViewerUrl(rawPdfUrl);
-
-    $pdfFrame.hidden = false;
+  function openViewer(item) {
+    state.current = item;
+    const displayName = getDisplayName(item.name);
+    document.getElementById('currentTitle').textContent = displayName;
+    
+    // Google Docs Viewer URL 생성
+    const viewerUrl = `${cfg.pdfViewerBase}?url=${encodeURIComponent(item.download_url)}&embedded=true`;
+    
     $pdfFrame.src = viewerUrl;
+    $directDownload.href = item.download_url; // 뷰어 안뜰 때를 대비한 원본 링크
+    
+    $listSection.classList.add('hidden');
+    $searchBox.classList.add('hidden');
+    $viewerSection.classList.remove('hidden');
+    $btnHome.classList.remove('hidden');
 
-    $listSection.hidden = true;
-    $viewerSection.hidden = false;
-    location.hash = `#/item/${encodeURIComponent(it.path)}`;
+    document.getElementById('iframeLoading').classList.remove('hidden');
+    $pdfFrame.onload = () => {
+      document.getElementById('iframeLoading').classList.add('hidden');
+    };
   }
 
-  function closeViewer(){
-    state.current = null;
-    $pdfFrame.src = 'about:blank';
-    $pdfFrame.hidden = false;
-    $viewerSection.hidden = true;
-    $listSection.hidden = false;
-    location.hash = '#/';
+  function closeViewer() {
+    $pdfFrame.src = "about:blank";
+    $viewerSection.classList.add('hidden');
+    $btnHome.classList.add('hidden');
+    $searchBox.classList.remove('hidden');
+    $listSection.classList.remove('hidden');
   }
 
-  function applyFilter(q){
-    const query = q.trim().toLowerCase();
-    let filtered = state.items;
-    if(query){
-      filtered = state.items.filter(it => displayNameFromFilename(it.name).toLowerCase().includes(query));
-    }
-    state.filtered = filtered;
+  // 검색 필터
+  $searchInput.oninput = () => {
+    const q = $searchInput.value.toLowerCase();
+    const filtered = state.items.filter(i => i.name.toLowerCase().includes(q));
     renderList(filtered);
-    if(query && filtered.length === 1){
-      openItem(filtered[0]);
-    }
-  }
+  };
 
-  function setStatus(msg){ if($status){ $status.className='loading'; $status.innerHTML = msg; } }
-  function clearStatus(){ if($status){ $status.remove(); } }
-  function showError(html){ if($status){ $status.className='error'; $status.innerHTML = html; } }
+  $btnHome.onclick = closeViewer;
+  document.getElementById('closeViewer').onclick = closeViewer;
 
-  document.getElementById('btnMenu').addEventListener('click', openDrawer);
-  $drawerBackdrop.addEventListener('click', closeDrawer);
-  $drawerClose.addEventListener('click', closeDrawer);
-  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeDrawer(); });
-  $search.addEventListener('input', ()=>applyFilter($search.value));
-  document.getElementById('closeViewer').addEventListener('click', closeViewer);
-
-  $btnHome.addEventListener('click', (e)=>{
-    e.preventDefault();
-    $search.value = '';
-    applyFilter('');
-    closeViewer();
-    closeDrawer();
-  });
-
-  async function handleHashChange(){
-    const h = location.hash || '#/';
-    const m = h.match(/^#\/item\/(.+)$/);
-    if(m){
-      const path = decodeURIComponent(m[1]);
-      const it = state.items.find(x => x.path === path);
-      if(it){ openItem(it); } else { closeViewer(); }
-    }else{
-      closeViewer();
-    }
-  }
-  window.addEventListener('hashchange', handleHashChange);
-
-  (async function init(){
-    try{
-      setStatus('MSDS 목록을 불러오는 중…');
-      let items = await fetchRecursive(cfg.dataPath);
-      items.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
-      state.items = items;
-      clearStatus();
-      document.getElementById('listSection').hidden = false;
-      renderList(items);
-      renderDrawer(items);
-
-      // ▼ 쿼리스트링 ?q= 를 검색창에 자동 반영
+  // 초기화
+  async function init() {
+    try {
+      state.items = await fetchFiles(cfg.dataPath);
+      state.items.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+      
       const params = new URLSearchParams(location.search);
-      const q = params.get('q');
-      if (q) {
-        $search.value = q;
-        applyFilter(q); // 목록 즉시 필터링 + 1건이면 자동 열기
-      }
-      // ▲ 여기까지
+      const query = params.get('q');
 
-      handleHashChange();
-    }catch(err){
-      console.error(err);
-      showError(`오류: 목록을 불러오지 못했습니다.<br><small style="display:block; margin-top:6px; color:#c00">${escapeHTML(String(err.message||err))}</small>`);
+      if (query) {
+        const match = state.items.find(i => i.name.toLowerCase().includes(query.toLowerCase()));
+        if (match) {
+          openViewer(match);
+        } else {
+          renderList(state.items);
+        }
+      } else {
+        renderList(state.items);
+      }
+    } catch (e) {
+      $status.textContent = "오류가 발생했습니다. 페이지를 새로고침 해주세요.";
     }
-  })();
+  }
+
+  init();
 })();
 </script>
 </body>
