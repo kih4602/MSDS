@@ -3,7 +3,6 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="color-scheme" content="light only" />
   <title>MSDS 모바일 뷰어</title>
   <script>
     window.__CONFIG__ = {
@@ -11,10 +10,9 @@
       repoName:  "MSDS",
       branch:    "main",
       dataPath:  "",
-      // 주소가 링크로 자동 변환되지 않도록 나눠서 작성
-      logoUrl:   "https:" + "//raw.githubusercontent.com/kih4602/picture/main/%EC%97%90%EB%84%88%EC%A7%80%ED%94%8C%EB%9F%AC%EC%8A%A4%EB%A1%9C%EA%B3%A0.png",
-      pdfViewerBase: "https:" + "//docs.google.com/viewer",
-      apiBase:   "https:" + "//api.github.com/repos/"
+      logoUrl:   "https://raw.githubusercontent.com/kih4602/picture/main/%EC%97%90%EB%84%88%EC%A7%80%ED%94%8C%EB%9F%AC%EC%8A%A4%EB%A1%9C%EA%B3%A0.png",
+      // Google Docs Viewer를 기본으로 사용 (범용성 극대화)
+      pdfViewerBase: "https://docs.google.com/viewer"
     };
   </script>
   <style>
@@ -30,7 +28,7 @@
     header{position:sticky; top:0; z-index:50; background:var(--bg); border-bottom:2px solid var(--brand); padding:10px;}
     .topbar{display:flex; align-items:center; gap:10px; max-width:800px; margin:0 auto;}
     .logo{height:34px; width:auto;}
-
+    
     .search-wrap{
       display:flex; align-items:center; gap:8px; flex:1;
       border:2px solid var(--brand); border-radius:999px; padding:6px 12px;
@@ -39,34 +37,34 @@
 
     main{padding:12px; max-width:800px; margin:0 auto;}
     .grid{display:grid; gap:12px; grid-template-columns:1fr;}
-
+    
     .card{
       border:2px solid var(--brand); border-radius:var(--radius);
       padding:16px; background:#fff; box-shadow:var(--shadow);
       cursor:pointer; font-weight:bold; font-size:17px;
     }
 
-    /* 뷰어 영역 (100dvh: 삼성인터넷 하단 툴바 대응) */
-    .viewer-container { display:flex; flex-direction:column; height:calc(100vh - 80px); height:calc(100dvh - 80px); gap:10px; }
-    .viewer-toolbar { display:flex; justify-content:space-between; align-items:center; }
-    .viewer-frame-wrap {
-      flex:1; border:2px solid var(--brand); border-radius:var(--radius);
-      overflow:hidden; background:#eee; position:relative;
+    /* 뷰어 영역 */
+    .viewer-container { display: flex; flex-direction: column; height: calc(100vh - 80px); gap: 10px; }
+    .viewer-toolbar { display: flex; justify-content: space-between; align-items: center; }
+    .viewer-frame-wrap { 
+      flex: 1; border: 2px solid var(--brand); border-radius: var(--radius); 
+      overflow: hidden; background: #eee; position: relative;
     }
-    .viewer-frame-wrap iframe { width:100%; height:100%; border:0; display:block; }
-
+    iframe { width: 100%; height: 100%; border: 0; }
+    
     .btn {
-      appearance:none; border:2px solid var(--brand); background:#fff;
-      color:var(--brand); border-radius:10px; padding:10px 16px;
-      font-weight:bold; cursor:pointer; font-size:14px; text-decoration:none;
+      appearance:none; border:2px solid var(--brand); background:#fff; 
+      color:var(--brand); border-radius:10px; padding:10px 16px; 
+      font-weight:bold; cursor:pointer; font-size:14px;
     }
-    .btn-primary { background:var(--brand); color:#fff; }
+    .btn-primary { background: var(--brand); color: #fff; }
 
     .loading-overlay {
-      position:absolute; top:50%; left:50%; transform:translate(-50%, -50%);
-      text-align:center; color:var(--muted); pointer-events:none;
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      text-align: center; color: var(--muted); pointer-events: none;
     }
-    .hidden { display:none !important; }
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
@@ -83,9 +81,11 @@
 
 <main id="content">
   <div id="status" class="card">목록을 불러오는 중...</div>
-
+  
+  <!-- 리스트 섹션 -->
   <section id="listSection" class="grid hidden"></section>
 
+  <!-- 뷰어 섹션 -->
   <section id="viewerSection" class="viewer-container hidden">
     <div class="viewer-toolbar">
       <div id="currentTitle" style="font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:50vw;"></div>
@@ -94,9 +94,9 @@
         <button id="closeViewer" class="btn btn-primary">닫기</button>
       </div>
     </div>
-    <!-- iframe은 스크립트에서 생성 -->
-    <div id="frameWrap" class="viewer-frame-wrap">
+    <div class="viewer-frame-wrap">
       <div id="iframeLoading" class="loading-overlay">문서를 여는 중...<br>(시간이 걸릴 수 있습니다)</div>
+      <iframe id="pdfFrame" src="about:blank"></iframe>
     </div>
   </section>
 </main>
@@ -104,22 +104,16 @@
 <script>
 (function(){
   const cfg = window.__CONFIG__;
-  const state = { items: [], current: null, loadTimer: null };
+  const state = { items: [], current: null };
 
   const $status = document.getElementById('status');
   const $listSection = document.getElementById('listSection');
   const $viewerSection = document.getElementById('viewerSection');
+  const $pdfFrame = document.getElementById('pdfFrame');
   const $searchInput = document.getElementById('searchInput');
   const $searchBox = document.getElementById('searchBox');
   const $btnHome = document.getElementById('btnHome');
   const $directDownload = document.getElementById('directDownload');
-  const $iframeLoading = document.getElementById('iframeLoading');
-
-  // iframe 생성
-  const $pdfFrame = document.createElement('iframe');
-  $pdfFrame.id = 'pdfFrame';
-  $pdfFrame.src = 'about:blank';
-  document.getElementById('frameWrap').appendChild($pdfFrame);
 
   // 로고 설정
   document.getElementById('logo').src = cfg.logoUrl;
@@ -128,8 +122,8 @@
     return filename.replace(/\.[^/.]+$/, "").replace(/^\d+[_]/, "").replace(/_MSDS/i, "");
   }
 
-  async function fetchFiles(path) {
-    const url = cfg.apiBase + cfg.repoOwner + "/" + cfg.repoName + "/contents/" + (path || "");
+  async function fetchFiles(path = "") {
+    const url = `https://api.github.com/repos/${cfg.repoOwner}/${cfg.repoName}/contents/${path}`;
     const res = await fetch(url);
     const data = await res.json();
     let files = [];
@@ -154,71 +148,74 @@
       $listSection.appendChild(div);
     });
     $listSection.classList.remove('hidden');
-    if (list.length === 0) {
-      $status.textContent = "검색 결과가 없습니다.";
-      $status.classList.remove('hidden');
-    } else {
-      $status.classList.add('hidden');
-    }
+    $status.classList.add('hidden');
   }
 
   function openViewer(item) {
     state.current = item;
-    document.getElementById('currentTitle').textContent = getDisplayName(item.name);
-
-    const viewerUrl = cfg.pdfViewerBase + "?url=" + encodeURIComponent(item.download_url) + "&embedded=true";
-    $directDownload.href = item.download_url;
-
-    $status.classList.add('hidden');   // ?q= 진입 시 로딩 문구 잔존 방지
+    const displayName = getDisplayName(item.name);
+    document.getElementById('currentTitle').textContent = displayName;
+    
+    // Google Docs Viewer URL 생성
+    const viewerUrl = `${cfg.pdfViewerBase}?url=${encodeURIComponent(item.download_url)}&embedded=true`;
+    
+    $directDownload.href = item.download_url; // 뷰어 안뜰 때를 대비한 원본 링크
+    
+    $status.classList.add('hidden'); // [수정] ?q= 로 바로 열 때 "목록을 불러오는 중..." 숨김
     $listSection.classList.add('hidden');
     $searchBox.classList.add('hidden');
     $viewerSection.classList.remove('hidden');
     $btnHome.classList.remove('hidden');
 
-    $iframeLoading.innerHTML = "문서를 여는 중...<br>(시간이 걸릴 수 있습니다)";
-    $iframeLoading.classList.remove('hidden');
+    document.getElementById('iframeLoading').classList.remove('hidden');
     $pdfFrame.onload = () => {
-      clearTimeout(state.loadTimer);
-      $iframeLoading.classList.add('hidden');
+      document.getElementById('iframeLoading').classList.add('hidden');
     };
-    $pdfFrame.src = viewerUrl;
-
-    clearTimeout(state.loadTimer);
-    state.loadTimer = setTimeout(() => {
-      $iframeLoading.innerHTML = "문서가 열리지 않습니다.<br>'원본보기'를 눌러주세요.";
-    }, 15000);
+    $pdfFrame.src = viewerUrl; // [수정] onload 연결 후 문서 로드 (로딩 문구 안 사라지는 문제)
   }
 
   function closeViewer() {
-    clearTimeout(state.loadTimer);
-    $pdfFrame.onload = null;
     $pdfFrame.src = "about:blank";
     $viewerSection.classList.add('hidden');
     $btnHome.classList.add('hidden');
     $searchBox.classList.remove('hidden');
-    const q = $searchInput.value.toLowerCase();
-    renderList(state.items.filter(i => i.name.toLowerCase().includes(q)));
+    // [수정] ?q= 로 바로 열었던 경우 목록이 비어 있으므로 다시 그림
+    if (!$listSection.children.length) {
+      renderList(state.items);
+    } else {
+      $listSection.classList.remove('hidden');
+    }
   }
 
+  // 검색 필터
   $searchInput.oninput = () => {
     const q = $searchInput.value.toLowerCase();
-    renderList(state.items.filter(i => i.name.toLowerCase().includes(q)));
+    const filtered = state.items.filter(i => i.name.toLowerCase().includes(q));
+    renderList(filtered);
   };
 
   $btnHome.onclick = closeViewer;
   document.getElementById('closeViewer').onclick = closeViewer;
 
+  // 초기화
   async function init() {
     try {
       state.items = await fetchFiles(cfg.dataPath);
       state.items.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+      
+      const params = new URLSearchParams(location.search);
+      const query = params.get('q');
 
-      const query = new URLSearchParams(location.search).get('q');
       if (query) {
         const match = state.items.find(i => i.name.toLowerCase().includes(query.toLowerCase()));
-        if (match) { openViewer(match); return; }
+        if (match) {
+          openViewer(match);
+        } else {
+          renderList(state.items);
+        }
+      } else {
+        renderList(state.items);
       }
-      renderList(state.items);
     } catch (e) {
       $status.textContent = "오류가 발생했습니다. 페이지를 새로고침 해주세요.";
     }
