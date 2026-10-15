@@ -106,6 +106,10 @@
   const cfg = window.__CONFIG__;
   const state = { items: [], current: null };
 
+  // [수정] 기기 판별 (아이폰/아이패드 = iOS, 그 외 = 안드로이드 등)
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
   const $status = document.getElementById('status');
   const $listSection = document.getElementById('listSection');
   const $viewerSection = document.getElementById('viewerSection');
@@ -158,10 +162,15 @@
     
     // Google Docs Viewer URL 생성
     const viewerUrl = `${cfg.pdfViewerBase}?url=${encodeURIComponent(item.download_url)}&embedded=true`;
+
+    // [수정] 아이폰: 기존 코드 순서 그대로 (src 먼저 지정)
+    if (isIOS) {
+      $pdfFrame.src = viewerUrl;
+    }
     
     $directDownload.href = item.download_url; // 뷰어 안뜰 때를 대비한 원본 링크
     
-    $status.classList.add('hidden'); // [수정] ?q= 로 바로 열 때 "목록을 불러오는 중..." 숨김
+    $status.classList.add('hidden'); // ?q= 로 바로 열 때 "목록을 불러오는 중..." 숨김
     $listSection.classList.add('hidden');
     $searchBox.classList.add('hidden');
     $viewerSection.classList.remove('hidden');
@@ -171,7 +180,11 @@
     $pdfFrame.onload = () => {
       document.getElementById('iframeLoading').classList.add('hidden');
     };
-    $pdfFrame.src = viewerUrl; // [수정] onload 연결 후 문서 로드 (로딩 문구 안 사라지는 문제)
+
+    // [수정] 안드로이드: 현재 잘 되는 순서 그대로 (onload 연결 후 src 지정)
+    if (!isIOS) {
+      $pdfFrame.src = viewerUrl;
+    }
   }
 
   function closeViewer() {
@@ -179,7 +192,7 @@
     $viewerSection.classList.add('hidden');
     $btnHome.classList.add('hidden');
     $searchBox.classList.remove('hidden');
-    // [수정] ?q= 로 바로 열었던 경우 목록이 비어 있으므로 다시 그림
+    // ?q= 로 바로 열었던 경우 목록이 비어 있으므로 다시 그림
     if (!$listSection.children.length) {
       renderList(state.items);
     } else {
