@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <!-- 삼성인터넷 다크모드 강제 변환 완화 -->
+  <meta name="color-scheme" content="light only" />
   <title>MSDS 모바일 뷰어</title>
   <script>
     window.__CONFIG__ = {
@@ -11,60 +13,72 @@
       branch:    "main",
       dataPath:  "",
       logoUrl:   "https://raw.githubusercontent.com/kih4602/picture/main/%EC%97%90%EB%84%88%EC%A7%80%ED%94%8C%EB%9F%AC%EC%8A%A4%EB%A1%9C%EA%B3%A0.png",
-      // Google Docs Viewer를 기본으로 사용 (범용성 극대화)
-      pdfViewerBase: "https://docs.google.com/viewer"
+      pdfViewerBase: "https://docs.google.com/viewer",
+      loadTimeoutMs: 15000   // 문서 로딩 대기 한도(15초)
     };
   </script>
   <style>
     :root{
+      color-scheme: light only;
       --brand:#0A1E2E; --bg:#FFFFFF; --fg:#111315;
       --muted:#5b6b79; --radius:14px; --shadow:0 8px 24px rgba(10,30,46,.08);
     }
     *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-    body{
-      margin:0; background:var(--bg); color:var(--fg);
-      font:16px/1.5 system-ui, -apple-system, sans-serif;
-    }
+    html,body{margin:0; background:var(--bg); color:var(--fg);}
+    body{font:16px/1.5 system-ui, -apple-system, "Malgun Gothic", sans-serif;}
     header{position:sticky; top:0; z-index:50; background:var(--bg); border-bottom:2px solid var(--brand); padding:10px;}
     .topbar{display:flex; align-items:center; gap:10px; max-width:800px; margin:0 auto;}
     .logo{height:34px; width:auto;}
-    
+
     .search-wrap{
-      display:flex; align-items:center; gap:8px; flex:1;
-      border:2px solid var(--brand); border-radius:999px; padding:6px 12px;
+      display:flex; align-items:center; gap:8px; flex:1; min-width:0;
+      border:2px solid var(--brand); border-radius:999px; padding:6px 12px; background:#fff;
     }
-    .search-wrap input{border:0; outline:none; width:100%; font-size:16px;}
+    .search-wrap input{
+      border:0; outline:none; width:100%; font-size:16px;
+      background:transparent; color:var(--fg);
+      -webkit-appearance:none; appearance:none;
+    }
 
     main{padding:12px; max-width:800px; margin:0 auto;}
     .grid{display:grid; gap:12px; grid-template-columns:1fr;}
-    
+
     .card{
       border:2px solid var(--brand); border-radius:var(--radius);
-      padding:16px; background:#fff; box-shadow:var(--shadow);
+      padding:16px; background:#fff; color:var(--fg); box-shadow:var(--shadow);
       cursor:pointer; font-weight:bold; font-size:17px;
     }
+    .card.info{cursor:default; font-weight:normal; color:var(--muted);}
 
-    /* 뷰어 영역 */
-    .viewer-container { display: flex; flex-direction: column; height: calc(100vh - 80px); gap: 10px; }
-    .viewer-toolbar { display: flex; justify-content: space-between; align-items: center; }
-    .viewer-frame-wrap { 
-      flex: 1; border: 2px solid var(--brand); border-radius: var(--radius); 
-      overflow: hidden; background: #eee; position: relative;
+    /* 뷰어 영역: 100vh 대신 100dvh 사용(삼성인터넷 툴바 대응) */
+    .viewer-container{
+      display:flex; flex-direction:column; gap:10px;
+      height:calc(100vh - 80px);
+      height:calc(100dvh - 80px);
     }
-    iframe { width: 100%; height: 100%; border: 0; }
-    
-    .btn {
-      appearance:none; border:2px solid var(--brand); background:#fff; 
-      color:var(--brand); border-radius:10px; padding:10px 16px; 
+    .viewer-toolbar{display:flex; justify-content:space-between; align-items:center; gap:8px;}
+    .viewer-frame-wrap{
+      flex:1; min-height:0;
+      border:2px solid var(--brand); border-radius:var(--radius);
+      overflow:hidden; background:#eee; position:relative;
+    }
+    iframe{display:block; width:100%; height:100%; border:0; background:#fff;}
+
+    .btn{
+      appearance:none; -webkit-appearance:none;
+      border:2px solid var(--brand); background:#fff;
+      color:var(--brand); border-radius:10px; padding:10px 16px;
       font-weight:bold; cursor:pointer; font-size:14px;
+      text-decoration:none; white-space:nowrap; display:inline-block;
     }
-    .btn-primary { background: var(--brand); color: #fff; }
+    .btn-primary{background:var(--brand); color:#fff;}
 
-    .loading-overlay {
-      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      text-align: center; color: var(--muted); pointer-events: none;
+    .loading-overlay{
+      position:absolute; inset:0; z-index:2;
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+      text-align:center; color:var(--muted); background:#eee; padding:16px;
     }
-    .hidden { display: none !important; }
+    .hidden{display:none !important;}
   </style>
 </head>
 <body>
@@ -80,31 +94,31 @@
 </header>
 
 <main id="content">
-  <div id="status" class="card">목록을 불러오는 중...</div>
-  
-  <!-- 리스트 섹션 -->
+  <div id="status" class="card info">목록을 불러오는 중...</div>
+
   <section id="listSection" class="grid hidden"></section>
 
-  <!-- 뷰어 섹션 -->
   <section id="viewerSection" class="viewer-container hidden">
     <div class="viewer-toolbar">
-      <div id="currentTitle" style="font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:50vw;"></div>
-      <div style="display:flex; gap:6px;">
-        <a id="directDownload" class="btn" target="_blank">원본보기</a>
+      <div id="currentTitle" style="font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;"></div>
+      <div style="display:flex; gap:6px; flex-shrink:0;">
+        <a id="directDownload" class="btn" target="_blank" rel="noopener">원본보기</a>
         <button id="closeViewer" class="btn btn-primary">닫기</button>
       </div>
     </div>
     <div class="viewer-frame-wrap">
-      <div id="iframeLoading" class="loading-overlay">문서를 여는 중...<br>(시간이 걸릴 수 있습니다)</div>
-      <iframe id="pdfFrame" src="about:blank"></iframe>
-    </div>
+      <div id="iframeLoading" class="loading-overlay">
+        <div id="loadingMsg">문서를 여는 중...<br>(시간이 걸릴 수 있습니다)</div>
+        <button id="btnRetry" class="btn hidden">다시 시도</button>
+      </div>
+      <iframe id="pdfFramev>
   </section>
 </main>
 
 <script>
 (function(){
   const cfg = window.__CONFIG__;
-  const state = { items: [], current: null };
+  const state = { items: [], current: null, loadTimer: null, listRendered: false };
 
   const $status = document.getElementById('status');
   const $listSection = document.getElementById('listSection');
@@ -114,28 +128,40 @@
   const $searchBox = document.getElementById('searchBox');
   const $btnHome = document.getElementById('btnHome');
   const $directDownload = document.getElementById('directDownload');
+  const $loading = document.getElementById('iframeLoading');
+  const $loadingMsg = document.getElementById('loadingMsg');
+  const $btnRetry = document.getElementById('btnRetry');
 
-  // 로고 설정
   document.getElementById('logo').src = cfg.logoUrl;
 
   function getDisplayName(filename) {
     return filename.replace(/\.[^/.]+$/, "").replace(/^\d+[_]/, "").replace(/_MSDS/i, "");
   }
 
-  async function fetchFiles(path = "") {
-    const url = `https://api.github.com/repos/${cfg.repoOwner}/${cfg.repoName}/contents/${path}`;
+  async function fetchFiles(path) {
+    const url = "https://api.github.com/repos/" + cfg.repoOwner + "/" + cfg.repoName +
+                "/contents/" + (path || "") + "?ref=" + cfg.branch;
     const res = await fetch(url);
+    if (!res.ok) {
+      const err = new Error("HTTP " + res.status);
+      err.status = res.status;
+      throw err;
+    }
     const data = await res.json();
     let files = [];
-    for (let item of data) {
+    for (const item of data) {
       if (item.type === "file" && item.name.toLowerCase().endsWith(".pdf")) {
         files.push(item);
       } else if (item.type === "dir") {
-        const sub = await fetchFiles(item.path);
-        files = files.concat(sub);
+        files = files.concat(await fetchFiles(item.path));
       }
     }
     return files;
+  }
+
+  function showStatus(msg) {
+    $status.innerHTML = msg;
+    $status.classList.remove('hidden');
   }
 
   function renderList(list) {
@@ -147,71 +173,104 @@
       div.onclick = () => openViewer(item);
       $listSection.appendChild(div);
     });
+    state.listRendered = true;
     $listSection.classList.remove('hidden');
-    $status.classList.add('hidden');
+
+    if (list.length === 0) {
+      showStatus("검색 결과가 없습니다.");
+    } else {
+      $status.classList.add('hidden');
+    }
+  }
+
+  function filteredItems() {
+    const q = $searchInput.value.trim().toLowerCase();
+    return q ? state.items.filter(i => i.name.toLowerCase().includes(q)) : state.items;
+  }
+
+  function clearLoadTimer() {
+    if (state.loadTimer) { clearTimeout(state.loadTimer); state.loadTimer = null; }
+  }
+
+  function loadFrame(item) {
+    clearLoadTimer();
+    $loadingMsg.innerHTML = "문서를 여는 중...<br>(시간이 걸릴 수 있습니다)";
+    $btnRetry.classList.add('hidden');
+    $loading.classList.remove('hidden');
+
+    // onload를 src 지정 전에 연결 + 캐시 우회값(t)으로 빈 화면 재시도 대응
+    $pdfFrame.onload = () => {
+      if ($pdfFrame.src === "about:blank") return;
+      clearLoadTimer();
+      $loading.classList.add('hidden');
+    };
+
+    const viewerUrl = cfg.pdfViewerBase + "?url=" + encodeURIComponent(item.download_url) +
+                      "&embedded=true&t=" + Date.now();
+    $pdfFrame.src = viewerUrl;
+
+    // 일정 시간 내 응답 없으면 안내 + 다시 시도 버튼
+    state.loadTimer = setTimeout(() => {
+      $loadingMsg.innerHTML = "문서가 열리지 않습니다.<br>다시 시도하거나 '원본보기'를 눌러주세요.";
+      $btnRetry.classList.remove('hidden');
+    }, cfg.loadTimeoutMs);
   }
 
   function openViewer(item) {
     state.current = item;
-    const displayName = getDisplayName(item.name);
-    document.getElementById('currentTitle').textContent = displayName;
-    
-    // Google Docs Viewer URL 생성
-    const viewerUrl = `${cfg.pdfViewerBase}?url=${encodeURIComponent(item.download_url)}&embedded=true`;
-    
-    $pdfFrame.src = viewerUrl;
-    $directDownload.href = item.download_url; // 뷰어 안뜰 때를 대비한 원본 링크
-    
+    document.getElementById('currentTitle').textContent = getDisplayName(item.name);
+    $directDownload.href = item.download_url;
+
+    $status.classList.add('hidden');          // [수정] ?q= 진입 시 로딩 카드 잔존 문제
     $listSection.classList.add('hidden');
     $searchBox.classList.add('hidden');
     $viewerSection.classList.remove('hidden');
     $btnHome.classList.remove('hidden');
 
-    document.getElementById('iframeLoading').classList.remove('hidden');
-    $pdfFrame.onload = () => {
-      document.getElementById('iframeLoading').classList.add('hidden');
-    };
+    loadFrame(item);
   }
 
   function closeViewer() {
+    clearLoadTimer();
+    $pdfFrame.onload = null;
     $pdfFrame.src = "about:blank";
     $viewerSection.classList.add('hidden');
     $btnHome.classList.add('hidden');
     $searchBox.classList.remove('hidden');
-    $listSection.classList.remove('hidden');
+
+    // [수정] ?q=로 바로 열었던 경우 목록이 없으므로 여기서 생성
+    renderList(filteredItems());
+
+    // ?q= 파라미터 제거(새로고침 시 같은 문서 재오픈 방지)
+    if (location.search) history.replaceState(null, "", location.pathname);
   }
 
-  // 검색 필터
-  $searchInput.oninput = () => {
-    const q = $searchInput.value.toLowerCase();
-    const filtered = state.items.filter(i => i.name.toLowerCase().includes(q));
-    renderList(filtered);
-  };
-
+  $btnRetry.onclick = () => { if (state.current) loadFrame(state.current); };
+  $searchInput.oninput = () => renderList(filteredItems());
   $btnHome.onclick = closeViewer;
   document.getElementById('closeViewer').onclick = closeViewer;
 
-  // 초기화
   async function init() {
     try {
       state.items = await fetchFiles(cfg.dataPath);
       state.items.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
-      
-      const params = new URLSearchParams(location.search);
-      const query = params.get('q');
 
+      const query = new URLSearchParams(location.search).get('q');
       if (query) {
-        const match = state.items.find(i => i.name.toLowerCase().includes(query.toLowerCase()));
-        if (match) {
-          openViewer(match);
-        } else {
-          renderList(state.items);
-        }
-      } else {
-        renderList(state.items);
+        const q = query.toLowerCase();
+        // 정확히 일치하는 이름 우선, 없으면 부분 일치
+        const match =
+          state.items.find(i => getDisplayName(i.name).toLowerCase() === q) ||
+          state.items.find(i => i.name.toLowerCase().includes(q));
+        if (match) { openViewer(match); return; }
       }
+      renderList(state.items);
     } catch (e) {
-      $status.textContent = "오류가 발생했습니다. 페이지를 새로고침 해주세요.";
+      if (e.status === 403 || e.status === 429) {
+        showStatus("접속이 일시적으로 많습니다.<br>잠시 후 새로고침 해주세요.");
+      } else {
+        showStatus("오류가 발생했습니다. 페이지를 새로고침 해주세요.");
+      }
     }
   }
 
