@@ -110,6 +110,18 @@
   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
                 (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
+  // [수정] PC/모바일 판별 (모바일 = iOS + 안드로이드 등, 그 외 = PC)
+  const isMobile = isIOS || /Android|Mobi/i.test(navigator.userAgent);
+
+  // [수정] PC는 브라우저 내장 PDF 뷰어(GitHub Pages 주소), 모바일은 기존 Google 뷰어
+  function getViewerUrl(item) {
+    if (isMobile) {
+      return `${cfg.pdfViewerBase}?url=${encodeURIComponent(item.download_url)}&embedded=true`;
+    }
+    return `https://${cfg.repoOwner}.github.io/${cfg.repoName}/` +
+           item.path.split('/').map(encodeURIComponent).join('/');
+  }
+
   const $status = document.getElementById('status');
   const $listSection = document.getElementById('listSection');
   const $viewerSection = document.getElementById('viewerSection');
@@ -160,8 +172,8 @@
     const displayName = getDisplayName(item.name);
     document.getElementById('currentTitle').textContent = displayName;
     
-    // Google Docs Viewer URL 생성
-    const viewerUrl = `${cfg.pdfViewerBase}?url=${encodeURIComponent(item.download_url)}&embedded=true`;
+    // [수정] 뷰어 URL 생성 (PC: 내장 PDF 뷰어 / 모바일: Google Docs Viewer)
+    const viewerUrl = getViewerUrl(item);
 
     // [수정] 아이폰: 기존 코드 순서 그대로 (src 먼저 지정)
     if (isIOS) {
@@ -181,7 +193,7 @@
       document.getElementById('iframeLoading').classList.add('hidden');
     };
 
-    // [수정] 안드로이드: 현재 잘 되는 순서 그대로 (onload 연결 후 src 지정)
+    // [수정] 안드로이드·PC: 현재 잘 되는 순서 그대로 (onload 연결 후 src 지정)
     if (!isIOS) {
       $pdfFrame.src = viewerUrl;
     }
